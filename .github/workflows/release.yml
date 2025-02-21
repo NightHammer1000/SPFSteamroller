@@ -31,7 +31,7 @@ jobs:
         run: dotnet restore
 
       - name: Build application
-        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true /p:PublishAot=true /p:PublishSingleFile=true /p:PublishTrimmed=false
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=false
 
       - name: Archive production artifacts (Linux)
         if: runner.os == 'Linux'
