@@ -11,6 +11,7 @@
     <PublishSingleFile>true</PublishSingleFile> <!-- Enable single file publish -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier> <!-- Specify the runtime identifier -->
     <SelfContained>true</SelfContained> <!-- Include the .NET runtime -->
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>

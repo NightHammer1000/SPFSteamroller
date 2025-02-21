@@ -11,30 +11,36 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '9.0.x-preview.1'
+          dotnet-quality: 'preview'
 
       - name: Install dependencies
         run: dotnet restore
 
       - name: Build application
-        run: dotnet publish -c Release -r ${{ matrix.os == 'ubuntu-latest' && 'linux-x64' || 'win-x64' }} --self-contained /p:PublishAot=true /p:PublishSingleFile=true
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true /p:PublishAot=true /p:PublishSingleFile=true /p:PublishTrimmed=false
 
       - name: Archive production artifacts (Linux)
         if: runner.os == 'Linux'
-        run: tar -czvf release.tar.gz -C ./bin/Release/net9.0/linux-x64/publish .
+        run: tar -czvf release.tar.gz -C bin/Release/net9.0/${{ matrix.rid }}/publish .
         shell: bash
 
       - name: Archive production artifacts (Windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path ./bin/Release/net9.0/win-x64/publish/* -DestinationPath release.zip
+        run: Compress-Archive -Path bin/Release/net9.0/${{ matrix.rid }}/publish/* -DestinationPath release.zip
         shell: pwsh
 
       - name: Upload artifact
