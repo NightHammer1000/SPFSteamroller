@@ -52,6 +52,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
@@ -65,29 +67,12 @@ jobs:
           name: release-win-x64
           path: ./release
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Linux artifact
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/release.tar.gz
-          asset_name: SPFSteamroller-linux-x64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Windows artifact
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/release.zip
-          asset_name: SPFSteamroller-windows-x64.zip
-          asset_content_type: application/zip
+        run: |
+          gh release create v${{ github.run_number }} \
+            --title "Release ${{ github.run_number }}" \
+            --notes "Release ${{ github.run_number }}" \
+            ./release/release.tar.gz#SPFSteamroller-linux-x64.tar.gz \
+            ./release/release.zip#SPFSteamroller-windows-x64.zip
