@@ -1,0 +1,87 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Build application
+        run: dotnet publish -c Release -r ${{ matrix.os == 'ubuntu-latest' && 'linux-x64' || 'win-x64' }} --self-contained /p:PublishAot=true /p:PublishSingleFile=true
+
+      - name: Archive production artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czvf release.tar.gz -C ./bin/Release/net9.0/linux-x64/publish .
+        shell: bash
+
+      - name: Archive production artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path ./bin/Release/net9.0/win-x64/publish/* -DestinationPath release.zip
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: release-${{ runner.os }}
+          path: ${{ runner.os == 'Linux' && 'release.tar.gz' || 'release.zip' }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: release-ubuntu-latest
+          path: ./release
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: release-windows-latest
+          path: ./release
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux artifact to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/release.tar.gz
+          asset_name: release.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows artifact to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/release.zip
+          asset_name: release.zip
+          asset_content_type: application/zip
