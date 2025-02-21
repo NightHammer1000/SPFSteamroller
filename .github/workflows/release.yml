@@ -11,11 +11,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        architecture: [x64, x86]
         include:
           - os: ubuntu-latest
-            rid: linux-x64
+            x64: linux-x64
+            x86: linux-x86
           - os: windows-latest
-            rid: win-x64
+            x64: win-x64
+            x86: win-x86
 
     steps:
       - name: Checkout code
@@ -31,38 +34,50 @@ jobs:
         run: dotnet restore
 
       - name: Build application
-        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=false
+        run: dotnet publish -c Release -r ${{ matrix[matrix.architecture] }} --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=false
 
-      - name: Archive production artifacts (Linux)
+      - name: Archive production artifacts (Linux x64/x86)
         if: runner.os == 'Linux'
-        run: tar -czvf release.tar.gz -C SPFSteamroller/bin/Release/net9.0/${{ matrix.rid }}/publish .
+        run: tar -czvf release-${{ matrix.architecture }}.tar.gz -C SPFSteamroller/bin/Release/net9.0/${{ matrix.architecture == 'x64' && matrix.x64 || matrix.x86 }}/publish .
         shell: bash
 
-      - name: Archive production artifacts (Windows)
+      - name: Archive production artifacts (Windows x64/x86)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path SPFSteamroller/bin/Release/net9.0/${{ matrix.rid }}/publish/* -DestinationPath release.zip
+        run: Compress-Archive -Path SPFSteamroller/bin/Release/net9.0/${{ matrix.architecture }}/publish/* -DestinationPath release-${{ matrix.architecture }}.zip
         shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ runner.os }}
-          path: ${{ runner.os == 'Linux' && 'release.tar.gz' || 'release.zip' }}
+          name: release-${{ runner.os == 'Linux' && 'linux' || 'win' }}-${{ matrix.architecture }}
+          path: ${{ runner.os == 'Linux' && format('release-{0}.tar.gz', matrix.architecture) || format('release-{0}.zip', matrix.architecture) }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Linux artifact
+      - name: Download Linux x64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: release-ubuntu-latest
+          name: release-linux-x64
           path: ./release
 
-      - name: Download Windows artifact
+      - name: Download Linux x86 artifact
         uses: actions/download-artifact@v4
         with:
-          name: release-windows-latest
+          name: release-linux-x86
+          path: ./release
+
+      - name: Download Windows x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-win-x64
+          path: ./release
+
+      - name: Download Windows x86 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-win-x86
           path: ./release
 
       - name: Create GitHub Release
@@ -76,18 +91,34 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Linux artifact to release
+      - name: Upload Linux x64 artifact
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/release.tar.gz
-          asset_name: release.tar.gz
+          asset_path: ./release/release-x64.tar.gz
+          asset_name: linux-x64.tar.gz
           asset_content_type: application/gzip
 
-      - name: Upload Windows artifact to release
+      - name: Upload Linux x86 artifact
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/release.zip
-          asset_name: release.zip
+          asset_path: ./release/release-x86.tar.gz
+          asset_name: linux-x86.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows x64 artifact
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/release-x64.zip
+          asset_name: windows-x64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Windows x86 artifact
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/release-x86.zip
+          asset_name: windows-x86.zip
           asset_content_type: application/zip
